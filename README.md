@@ -99,6 +99,15 @@ metric.save_cache()
 
 Disable with `use_cache=False`.
 
+Inspect what is already on disk:
+
+```python
+from cxrfescore import inspect_cache
+
+inspect_cache()                 # default cache location
+# or: metric.inspect_cache()    # uses this instance's cache_dir
+```
+
 ### Visualization
 
 ```python
@@ -128,7 +137,7 @@ After publishing, install in Colab (GPU runtime recommended):
 For a pre-release check against TestPyPI:
 
 ```python
-!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.0"
+!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.1"
 ```
 
 ## Citation

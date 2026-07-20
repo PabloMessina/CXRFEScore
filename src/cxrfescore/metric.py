@@ -315,6 +315,14 @@ class CXRFEScore:
         self._save_sent_to_facts_cache()
         self._save_fact_to_embedding_cache()
 
+    def inspect_cache(self, max_samples: int = 5, *, print_report: bool = True):
+        """Inspect on-disk caches for this metric's ``cache_dir``."""
+        from cxrfescore.cache_utils import inspect_cache
+
+        return inspect_cache(
+            self.cache_dir, max_samples=max_samples, print_report=print_report
+        )
+
     @staticmethod
     def _aggregate_facts(
         report_sents: List[str], sent_to_facts_map: Dict[str, List[str]]

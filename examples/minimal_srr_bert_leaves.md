@@ -3,7 +3,7 @@
 Uses CLS embeddings from [`StanfordAIMI/SRR-BERT-Leaves`](https://huggingface.co/StanfordAIMI/SRR-BERT-Leaves) (768-d). Label prediction heads are not used.
 
 ```python
-!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.0"
+!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.1"
 
 from cxrfescore import CXRFEScore
 
