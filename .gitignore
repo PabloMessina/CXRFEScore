@@ -1,0 +1,23 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Local caches / notebooks checkpoints
+.ipynb_checkpoints/
+*.pkl
