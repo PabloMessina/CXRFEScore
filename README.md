@@ -48,10 +48,11 @@ Supported alternate encoders:
 
 - `microsoft/BiomedVLP-CXR-BERT-specialized`
 - `microsoft/BiomedVLP-BioViL-T`
+- `StanfordAIMI/SRR-BERT-Leaves` (CLS embeddings only; label head unused)
 
 A GPU is recommended but not required. CPU works and is slower.
 
-Known-good stack from development: PyTorch 2.x + `transformers` 4.x.
+Known-good stack from development: PyTorch 2.x + `transformers` 4.x / 5.x.
 
 ## Quick start
 
@@ -72,13 +73,27 @@ print(result["mean_similarity"])
 print(result["per_pair_similarity"])
 ```
 
+### Extract facts or embeddings only
+
+`extract_facts` treats each input string as a **full report**: sentence-split → T5 fact extraction → unique-fact aggregation (same pipeline as scoring).
+
+```python
+facts_per_report = metric.extract_facts(hyps)
+embeddings = metric.embed_facts(facts_per_report[0])  # shape (num_facts, dim)
+```
+
 ### Caching
 
-By default, sentence→facts and fact→embedding maps are cached under the platform user cache directory for `cxrfescore` (via `platformdirs`).
+With `use_cache=True` (default), results are kept **in memory** during the session:
+
+- Sentence→facts: `{cache_dir}/sent_to_facts.pkl` (shared across encoders)
+- Fact→embedding: `{cache_dir}/embeddings/<encoder_name>/fact_to_embedding.pkl` (per encoder)
+
+Disk writes are **not** automatic. Call `save_cache()` explicitly after a large batch or at the end of a job:
 
 ```python
 metric = CXRFEScore(use_cache=True, cache_dir="/path/to/cache")
-# ... after scoring ...
+# ... score / extract / embed ...
 metric.save_cache()
 ```
 
@@ -91,6 +106,17 @@ Disable with `use_cache=False`.
 metric.visualize_fact_similarity(ref_report=refs[0], cand_report=hyps[0])
 ```
 
+## Examples
+
+| File | Purpose |
+|---|---|
+| [`examples/colab_smoke.md`](examples/colab_smoke.md) | Full Colab smoke + adversarial pairs |
+| [`examples/minimal_cxrfe.md`](examples/minimal_cxrfe.md) | Default CXRFE encoder |
+| [`examples/minimal_cxr_bert_specialized.md`](examples/minimal_cxr_bert_specialized.md) | CXR-BERT specialized |
+| [`examples/minimal_biovil_t.md`](examples/minimal_biovil_t.md) | BioViL-T |
+| [`examples/minimal_srr_bert_leaves.md`](examples/minimal_srr_bert_leaves.md) | SRR-BERT-Leaves CLS |
+| [`examples/minimal_extract_embed.md`](examples/minimal_extract_embed.md) | `extract_facts` / `embed_facts` |
+
 ## Try it on Google Colab
 
 After publishing, install in Colab (GPU runtime recommended):
@@ -102,10 +128,8 @@ After publishing, install in Colab (GPU runtime recommended):
 For a pre-release check against TestPyPI:
 
 ```python
-!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ cxrfescore
+!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.0"
 ```
-
-See [`examples/colab_smoke.md`](examples/colab_smoke.md) for a full smoke-test checklist.
 
 ## Citation
 

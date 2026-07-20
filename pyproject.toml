@@ -16,7 +16,7 @@ include = [
 
 [project]
 name = "cxrfescore"
-version = "0.1.1"
+version = "0.2.0"
 authors = [
   { name = "Pablo Messina", email = "pablo.messina.g@gmail.com" },
 ]

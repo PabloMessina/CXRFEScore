@@ -15,7 +15,14 @@ from platformdirs import user_cache_dir
 from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-from transformers import AutoModel, AutoTokenizer, T5ForConditionalGeneration, T5TokenizerFast
+from transformers import (
+    AutoModel,
+    AutoTokenizer,
+    BertForSequenceClassification,
+    BertTokenizer,
+    T5ForConditionalGeneration,
+    T5TokenizerFast,
+)
 
 from cxrfescore.nltk_setup import ensure_nltk_resources
 from cxrfescore.text_utils import parse_facts, remove_consecutive_repeated_words_from_text
@@ -26,6 +33,15 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 DEFAULT_CACHE_DIR = user_cache_dir("cxrfescore")
 
+# SRR-BERT-Leaves uses a classification head; we only use BERT CLS embeddings.
+SRR_BERT_LEAVES_NUM_LABELS = 55
+SRR_BERT_LEAVES_TOKENIZER = "microsoft/BiomedVLP-CXR-BERT-general"
+SRR_BERT_LEAVES_MAX_LENGTH = 128
+
+
+def _safe_model_dirname(model_name: str) -> str:
+    """Filesystem-safe directory name for a Hugging Face model id."""
+    return model_name.replace("/", "__")
 
 class TextDataset(Dataset):
     def __init__(self, texts):
@@ -77,12 +93,23 @@ class CXRFEScore:
         "pamessina/CXRFE",
         "microsoft/BiomedVLP-CXR-BERT-specialized",
         "microsoft/BiomedVLP-BioViL-T",
+        "StanfordAIMI/SRR-BERT-Leaves",
     ]
 
     MODEL_EMBEDDING_DIMENSIONS = {
         "pamessina/CXRFE": 128,
         "microsoft/BiomedVLP-CXR-BERT-specialized": 128,
         "microsoft/BiomedVLP-BioViL-T": 128,
+        "StanfordAIMI/SRR-BERT-Leaves": 768,
+    }
+
+    # projected: get_projected_text_embeddings (CXRFE / CXR-BERT family)
+    # cls: BERT CLS token from BertForSequenceClassification.bert
+    ENCODER_BACKEND = {
+        "pamessina/CXRFE": "projected",
+        "microsoft/BiomedVLP-CXR-BERT-specialized": "projected",
+        "microsoft/BiomedVLP-BioViL-T": "projected",
+        "StanfordAIMI/SRR-BERT-Leaves": "cls",
     }
 
     def __init__(
@@ -107,9 +134,14 @@ class CXRFEScore:
             batch_size: Default batch size for fact extraction / embeddings.
             num_workers: DataLoader workers for fact extraction.
             verbose: Enable logging and progress bars.
-            use_cache: Enable in-memory and disk caching for facts/embeddings.
-            cache_dir: Cache directory. Defaults to the platform user cache dir
-                for ``cxrfescore`` when ``use_cache`` is True.
+            use_cache: Enable in-memory caching for facts/embeddings. Disk
+                persistence is **manual** via ``save_cache()`` (not automatic
+                after every batch).
+            cache_dir: Base cache directory. Defaults to the platform user
+                cache dir for ``cxrfescore``. Sentence→facts live under this
+                directory; fact embeddings live under
+                ``cache_dir/embeddings/<encoder_model_name>/`` so encoders
+                do not share embedding caches.
         """
         if encoder_model_name not in self.SUPPORTED_MODELS:
             raise ValueError(
@@ -132,11 +164,19 @@ class CXRFEScore:
         )
         self.encoder_model_name = encoder_model_name
         self.extractor_model_name = extractor_model_name
+        self.encoder_backend = self.ENCODER_BACKEND[encoder_model_name]
+        self.encoder_max_length = (
+            SRR_BERT_LEAVES_MAX_LENGTH if self.encoder_backend == "cls" else None
+        )
         self.default_batch_size = batch_size
         self.default_num_workers = num_workers
         self.verbose = verbose
         self.use_cache = use_cache
         self.cache_dir = cache_dir
+        self.facts_cache_dir = cache_dir
+        self.embed_cache_dir = os.path.join(
+            cache_dir, "embeddings", _safe_model_dirname(encoder_model_name)
+        )
         self.embedding_dimension = self.MODEL_EMBEDDING_DIMENSIONS[
             self.encoder_model_name
         ]
@@ -149,19 +189,13 @@ class CXRFEScore:
             logger.info(
                 f"Initializing CXRFEScore with encoder model: {self.encoder_model_name} and"
                 f" extractor model: {self.extractor_model_name}, use_cache: {self.use_cache},"
-                f" cache_dir: {self.cache_dir}, default batch size: {self.default_batch_size},"
+                f" cache_dir: {self.cache_dir}, embed_cache_dir: {self.embed_cache_dir},"
+                f" default batch size: {self.default_batch_size},"
                 f" default num workers: {self.default_num_workers}."
             )
             logger.info(f"Using device: {self.device}")
 
-        self.encoder_tokenizer = AutoTokenizer.from_pretrained(
-            encoder_model_name, trust_remote_code=True
-        )
-        self.encoder_model = AutoModel.from_pretrained(
-            encoder_model_name, trust_remote_code=True
-        )
-        self.encoder_model.to(self.device)
-        self.encoder_model.eval()
+        self._load_encoder()
 
         self.extractor_tokenizer = T5TokenizerFast.from_pretrained(
             extractor_model_name
@@ -172,10 +206,39 @@ class CXRFEScore:
         self.extractor_model.to(self.device)
         self.extractor_model.eval()
 
+    def _load_encoder(self):
+        """Load the configured fact encoder and its tokenizer."""
+        if self.encoder_backend == "projected":
+            self.encoder_tokenizer = AutoTokenizer.from_pretrained(
+                self.encoder_model_name, trust_remote_code=True
+            )
+            self.encoder_model = AutoModel.from_pretrained(
+                self.encoder_model_name, trust_remote_code=True
+            )
+            self.encoder_model.to(self.device)
+            self.encoder_model.eval()
+            return
+
+        if self.encoder_backend == "cls":
+            # Classification weights are unused; we only read BERT CLS states.
+            self.encoder_tokenizer = BertTokenizer.from_pretrained(
+                SRR_BERT_LEAVES_TOKENIZER
+            )
+            self.encoder_model = BertForSequenceClassification.from_pretrained(
+                self.encoder_model_name, num_labels=SRR_BERT_LEAVES_NUM_LABELS
+            )
+            self.encoder_model.to(self.device)
+            self.encoder_model.eval()
+            return
+
+        raise ValueError(f"Unknown encoder_backend: {self.encoder_backend}")
+
     def _load_cache(self):
         """Load fact and embedding caches from disk if they exist."""
-        facts_cache_path = os.path.join(self.cache_dir, "sent_to_facts.pkl")
-        embed_cache_path = os.path.join(self.cache_dir, "fact_to_embedding.pkl")
+        facts_cache_path = os.path.join(self.facts_cache_dir, "sent_to_facts.pkl")
+        embed_cache_path = os.path.join(
+            self.embed_cache_dir, "fact_to_embedding.pkl"
+        )
 
         if os.path.exists(facts_cache_path):
             try:
@@ -207,14 +270,14 @@ class CXRFEScore:
                     "Starting with an empty cache."
                 )
 
-    def _save_cache_file(self, data: dict, filename: str):
+    def _save_cache_file(self, data: dict, directory: str, filename: str):
         """Atomically save a cache dictionary to a pickle file."""
         if not self.use_cache:
             return
 
-        os.makedirs(self.cache_dir, exist_ok=True)
+        os.makedirs(directory, exist_ok=True)
 
-        final_path = os.path.join(self.cache_dir, filename)
+        final_path = os.path.join(directory, filename)
         temp_path = final_path + ".tmp"
 
         try:
@@ -229,13 +292,26 @@ class CXRFEScore:
                 os.remove(temp_path)
 
     def _save_sent_to_facts_cache(self):
-        self._save_cache_file(self.sent_to_facts_cache, "sent_to_facts.pkl")
+        self._save_cache_file(
+            self.sent_to_facts_cache, self.facts_cache_dir, "sent_to_facts.pkl"
+        )
 
     def _save_fact_to_embedding_cache(self):
-        self._save_cache_file(self.fact_to_embedding_cache, "fact_to_embedding.pkl")
+        self._save_cache_file(
+            self.fact_to_embedding_cache,
+            self.embed_cache_dir,
+            "fact_to_embedding.pkl",
+        )
 
     def save_cache(self):
-        """Persist in-memory caches to disk."""
+        """
+        Persist in-memory caches to disk.
+
+        Call this explicitly after scoring a large batch (or at the end of a
+        job). Caches are updated in memory during ``compute`` /
+        ``extract_facts`` / ``embed_facts``, but are **not** written to disk
+        automatically.
+        """
         self._save_sent_to_facts_cache()
         self._save_fact_to_embedding_cache()
 
@@ -403,19 +479,39 @@ class CXRFEScore:
         with torch.no_grad():
             for i in iterator:
                 batch_texts = texts_to_process[i : i + batch_size]
-                # Prefer tokenizer __call__ (batch_encode_plus is missing on some
-                # custom remote-code tokenizers under newer transformers).
-                inputs = self.encoder_tokenizer(
-                    batch_texts,
-                    add_special_tokens=True,
-                    padding="longest",
-                    return_tensors="pt",
-                )
-                input_ids = inputs["input_ids"].to(self.device)
-                attention_mask = inputs["attention_mask"].to(self.device)
-                batch_embeddings = self.encoder_model.get_projected_text_embeddings(
-                    input_ids=input_ids, attention_mask=attention_mask
-                )
+                if self.encoder_backend == "projected":
+                    # Prefer tokenizer __call__ (batch_encode_plus is missing on some
+                    # custom remote-code tokenizers under newer transformers).
+                    inputs = self.encoder_tokenizer(
+                        batch_texts,
+                        add_special_tokens=True,
+                        padding="longest",
+                        return_tensors="pt",
+                    )
+                    input_ids = inputs["input_ids"].to(self.device)
+                    attention_mask = inputs["attention_mask"].to(self.device)
+                    batch_embeddings = self.encoder_model.get_projected_text_embeddings(
+                        input_ids=input_ids, attention_mask=attention_mask
+                    )
+                elif self.encoder_backend == "cls":
+                    inputs = self.encoder_tokenizer(
+                        batch_texts,
+                        padding="longest",
+                        truncation=True,
+                        max_length=self.encoder_max_length,
+                        return_tensors="pt",
+                        return_attention_mask=True,
+                    )
+                    input_ids = inputs["input_ids"].to(self.device)
+                    attention_mask = inputs["attention_mask"].to(self.device)
+                    bert_out = self.encoder_model.bert(
+                        input_ids, attention_mask=attention_mask, return_dict=True
+                    )
+                    batch_embeddings = bert_out.last_hidden_state[:, 0, :]
+                else:
+                    raise ValueError(
+                        f"Unknown encoder_backend: {self.encoder_backend}"
+                    )
                 new_embeddings.append(batch_embeddings.cpu().numpy())
 
         new_embeddings = np.concatenate(new_embeddings, axis=0)
@@ -430,6 +526,69 @@ class CXRFEScore:
             )
             return text_embeddings
         return new_embeddings
+
+    def extract_facts(
+        self,
+        reports: List[str],
+        batch_size: Optional[int] = None,
+        num_workers: Optional[int] = None,
+    ) -> List[List[str]]:
+        """
+        Extract unique facts from full radiology reports.
+
+        Each input string is treated as a **full report** (not a single
+        sentence): it is sentence-split with NLTK, facts are extracted per
+        sentence with the T5 fact extractor, then unique facts are aggregated
+        in report order — the same pipeline used by ``compute``.
+
+        Args:
+            reports: List of full report strings.
+            batch_size: Batch size for the fact extractor.
+            num_workers: DataLoader workers for fact extraction.
+
+        Returns:
+            A list of fact lists, one per input report.
+        """
+        if self.verbose:
+            logger.info(
+                f"extract_facts: treating {len(reports)} inputs as full reports "
+                "(sentence-split → extract → aggregate)."
+            )
+
+        sents_per_report = [sent_tokenize(report) for report in reports]
+
+        all_unique_sents = set()
+        for report_sents in sents_per_report:
+            all_unique_sents.update(s.strip() for s in report_sents if s.strip())
+        all_unique_sents_list = list(all_unique_sents)
+
+        facts_per_unique_sent = self._extract_facts_batch(
+            all_unique_sents_list, batch_size=batch_size, num_workers=num_workers
+        )
+        sent_to_facts = {
+            sent: facts
+            for sent, facts in zip(all_unique_sents_list, facts_per_unique_sent)
+        }
+        return [
+            self._aggregate_facts(sents, sent_to_facts) for sents in sents_per_report
+        ]
+
+    def embed_facts(
+        self,
+        facts: List[str],
+        batch_size: Optional[int] = None,
+    ) -> np.ndarray:
+        """
+        Embed a list of fact strings with the configured encoder.
+
+        Args:
+            facts: Fact strings (already extracted; not full reports).
+            batch_size: Batch size for embedding.
+
+        Returns:
+            Array of shape ``(len(facts), embedding_dimension)``.
+        """
+        return self._get_embeddings_batch(facts, batch_size=batch_size)
 
     def compute(
         self,
