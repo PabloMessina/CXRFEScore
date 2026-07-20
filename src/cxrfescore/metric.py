@@ -403,8 +403,10 @@ class CXRFEScore:
         with torch.no_grad():
             for i in iterator:
                 batch_texts = texts_to_process[i : i + batch_size]
-                inputs = self.encoder_tokenizer.batch_encode_plus(
-                    batch_text_or_text_pairs=batch_texts,
+                # Prefer tokenizer __call__ (batch_encode_plus is missing on some
+                # custom remote-code tokenizers under newer transformers).
+                inputs = self.encoder_tokenizer(
+                    batch_texts,
                     add_special_tokens=True,
                     padding="longest",
                     return_tensors="pt",

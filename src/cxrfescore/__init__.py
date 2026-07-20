@@ -3,4 +3,4 @@
 from cxrfescore.metric import CXRFEScore
 
 __all__ = ["CXRFEScore"]
-__version__ = "0.1.0"
+__version__ = "0.1.1"
