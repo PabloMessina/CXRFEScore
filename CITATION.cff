@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+message: "If you use CXRFEScore, please cite the following paper."
+title: "CXRFEScore"
+type: software
+authors:
+  - family-names: Messina
+    given-names: Pablo
+  - family-names: Vidal
+    given-names: Rene
+  - family-names: Parra
+    given-names: Denis
+  - family-names: Soto
+    given-names: Alvaro
+  - family-names: Araujo
+    given-names: Vladimir
+preferred-citation:
+  type: conference-paper
+  title: "Extracting and Encoding: Leveraging Large Language Models and Medical Knowledge to Enhance Radiological Text Representation"
+  authors:
+    - family-names: Messina
+      given-names: Pablo
+    - family-names: Vidal
+      given-names: Rene
+    - family-names: Parra
+      given-names: Denis
+    - family-names: Soto
+      given-names: Alvaro
+    - family-names: Araujo
+      given-names: Vladimir
+  collection-title: "Findings of the Association for Computational Linguistics: ACL 2024"
+  month: 8
+  year: 2024
+  publisher: "Association for Computational Linguistics"
+  address: "Bangkok, Thailand"
+  url: "https://aclanthology.org/2024.findings-acl.236/"
+  doi: "10.18653/v1/2024.findings-acl.236"
+  pages: "3955-3986"
+  identifiers:
+    - type: doi
+      value: "10.18653/v1/2024.findings-acl.236"
+repository-code: "https://github.com/PabloMessina/CXRFEScore"
+license: MIT

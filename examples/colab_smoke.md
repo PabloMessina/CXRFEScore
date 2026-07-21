@@ -11,7 +11,7 @@ Run this **after** `cxrfescore` is uploaded to TestPyPI and **before** productio
 ## Install from TestPyPI
 
 ```python
-!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.1"
+!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.2"
 ```
 
 After the production release, use:
@@ -163,3 +163,7 @@ if synonym > negation and synonym > laterality:
 - [ ] Similar pair scores higher than unrelated pair
 - [ ] Adversarial pairs inspected (negation, laterality, severity, synonyms, devices)
 - [ ] No import / runtime errors
+
+## Citation
+
+If you use CXRFEScore, please cite [Messina et al., Findings of ACL 2024](https://aclanthology.org/2024.findings-acl.236/). Full BibTeX is in the [README](../README.md#citation).

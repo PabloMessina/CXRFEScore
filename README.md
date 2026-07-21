@@ -137,22 +137,38 @@ After publishing, install in Colab (GPU runtime recommended):
 For a pre-release check against TestPyPI:
 
 ```python
-!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.1"
+!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.2"
 ```
 
 ## Citation
 
+If you use CXRFEScore, please cite:
+
+> Pablo Messina, Rene Vidal, Denis Parra, Alvaro Soto, and Vladimir Araujo. 2024. [Extracting and Encoding: Leveraging Large Language Models and Medical Knowledge to Enhance Radiological Text Representation](https://aclanthology.org/2024.findings-acl.236/). In *Findings of the Association for Computational Linguistics: ACL 2024*, pages 3955–3986, Bangkok, Thailand. Association for Computational Linguistics.
+
 ```bibtex
 @inproceedings{messina-etal-2024-extracting,
     title = "Extracting and Encoding: Leveraging Large Language Models and Medical Knowledge to Enhance Radiological Text Representation",
-    author = "Messina, Pablo and others",
+    author = "Messina, Pablo  and
+      Vidal, Rene  and
+      Parra, Denis  and
+      Soto, Alvaro  and
+      Araujo, Vladimir",
+    editor = "Ku, Lun-Wei  and
+      Martins, Andre  and
+      Srikumar, Vivek",
     booktitle = "Findings of the Association for Computational Linguistics: ACL 2024",
+    month = aug,
     year = "2024",
-    url = "https://aclanthology.org/2024.findings-acl.236/"
+    address = "Bangkok, Thailand",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.findings-acl.236/",
+    doi = "10.18653/v1/2024.findings-acl.236",
+    pages = "3955--3986"
 }
 ```
 
-Paper: [ACL Anthology](https://aclanthology.org/2024.findings-acl.236/) · [arXiv](https://arxiv.org/abs/2407.01948)
+Paper: [ACL Anthology](https://aclanthology.org/2024.findings-acl.236/) · [PDF](https://aclanthology.org/2024.findings-acl.236.pdf) · [arXiv](https://arxiv.org/abs/2407.01948)
 
 ## Development
 
