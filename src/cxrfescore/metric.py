@@ -6,6 +6,7 @@ import logging
 import os
 import pickle
 import textwrap
+import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -14,7 +15,7 @@ from nltk.tokenize import sent_tokenize
 from platformdirs import user_cache_dir
 from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader, Dataset
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from transformers import (
     AutoModel,
     AutoTokenizer,
@@ -390,7 +391,12 @@ class CXRFEScore:
         offset = 0
         with torch.no_grad():
             iterator = (
-                tqdm(dataloader, total=len(dataloader), mininterval=2)
+                tqdm(
+                    dataloader,
+                    total=len(dataloader),
+                    desc="Extracting facts",
+                    mininterval=2,
+                )
                 if self.verbose
                 else dataloader
             )
@@ -484,43 +490,55 @@ class CXRFEScore:
             else range(0, len(texts_to_process), batch_size)
         )
 
-        with torch.no_grad():
-            for i in iterator:
-                batch_texts = texts_to_process[i : i + batch_size]
-                if self.encoder_backend == "projected":
-                    # Prefer tokenizer __call__ (batch_encode_plus is missing on some
-                    # custom remote-code tokenizers under newer transformers).
-                    inputs = self.encoder_tokenizer(
-                        batch_texts,
-                        add_special_tokens=True,
-                        padding="longest",
-                        return_tensors="pt",
-                    )
-                    input_ids = inputs["input_ids"].to(self.device)
-                    attention_mask = inputs["attention_mask"].to(self.device)
-                    batch_embeddings = self.encoder_model.get_projected_text_embeddings(
-                        input_ids=input_ids, attention_mask=attention_mask
-                    )
-                elif self.encoder_backend == "cls":
-                    inputs = self.encoder_tokenizer(
-                        batch_texts,
-                        padding="longest",
-                        truncation=True,
-                        max_length=self.encoder_max_length,
-                        return_tensors="pt",
-                        return_attention_mask=True,
-                    )
-                    input_ids = inputs["input_ids"].to(self.device)
-                    attention_mask = inputs["attention_mask"].to(self.device)
-                    bert_out = self.encoder_model.bert(
-                        input_ids, attention_mask=attention_mask, return_dict=True
-                    )
-                    batch_embeddings = bert_out.last_hidden_state[:, 0, :]
-                else:
-                    raise ValueError(
-                        f"Unknown encoder_backend: {self.encoder_backend}"
-                    )
-                new_embeddings.append(batch_embeddings.cpu().numpy())
+        # Newer transformers emit FutureWarning about encoder_attention_mask in
+        # BertSdpaSelfAttention; harmless for this metric but noisy in notebooks.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*encoder_attention_mask.*",
+                category=FutureWarning,
+            )
+            with torch.no_grad():
+                for i in iterator:
+                    batch_texts = texts_to_process[i : i + batch_size]
+                    if self.encoder_backend == "projected":
+                        # Prefer tokenizer __call__ (batch_encode_plus is missing on some
+                        # custom remote-code tokenizers under newer transformers).
+                        inputs = self.encoder_tokenizer(
+                            batch_texts,
+                            add_special_tokens=True,
+                            padding="longest",
+                            return_tensors="pt",
+                        )
+                        input_ids = inputs["input_ids"].to(self.device)
+                        attention_mask = inputs["attention_mask"].to(self.device)
+                        batch_embeddings = (
+                            self.encoder_model.get_projected_text_embeddings(
+                                input_ids=input_ids, attention_mask=attention_mask
+                            )
+                        )
+                    elif self.encoder_backend == "cls":
+                        inputs = self.encoder_tokenizer(
+                            batch_texts,
+                            padding="longest",
+                            truncation=True,
+                            max_length=self.encoder_max_length,
+                            return_tensors="pt",
+                            return_attention_mask=True,
+                        )
+                        input_ids = inputs["input_ids"].to(self.device)
+                        attention_mask = inputs["attention_mask"].to(self.device)
+                        bert_out = self.encoder_model.bert(
+                            input_ids,
+                            attention_mask=attention_mask,
+                            return_dict=True,
+                        )
+                        batch_embeddings = bert_out.last_hidden_state[:, 0, :]
+                    else:
+                        raise ValueError(
+                            f"Unknown encoder_backend: {self.encoder_backend}"
+                        )
+                    new_embeddings.append(batch_embeddings.cpu().numpy())
 
         new_embeddings = np.concatenate(new_embeddings, axis=0)
 

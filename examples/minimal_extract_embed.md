@@ -4,7 +4,7 @@
 `embed_facts` embeds already-extracted fact strings.
 
 ```python
-!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.2"
+!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.3"
 
 from cxrfescore import CXRFEScore
 

@@ -21,3 +21,6 @@ venv/
 # Local caches / notebooks checkpoints
 .ipynb_checkpoints/
 *.pkl
+
+# Local agent notes (not for the public package repo)
+AGENT_HANDOFF.md

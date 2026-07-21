@@ -4,4 +4,4 @@ from cxrfescore.cache_utils import inspect_cache
 from cxrfescore.metric import CXRFEScore
 
 __all__ = ["CXRFEScore", "inspect_cache"]
-__version__ = "0.2.2"
+__version__ = "0.2.3"
