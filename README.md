@@ -8,6 +8,8 @@ Based on:
 
 > Messina et al., *Extracting and Encoding: Leveraging Large Language Models and Medical Knowledge to Enhance Radiological Text Representation*, Findings of ACL 2024.
 
+**Paper hub** (models, slides, executed demo): [PabloMessina/CXR-Fact-Encoder](https://github.com/PabloMessina/CXR-Fact-Encoder)
+
 ## Install
 
 ```bash
@@ -126,19 +128,22 @@ metric.visualize_fact_similarity(ref_report=refs[0], cand_report=hyps[0])
 | [`examples/minimal_srr_bert_leaves.md`](examples/minimal_srr_bert_leaves.md) | SRR-BERT-Leaves CLS |
 | [`examples/minimal_extract_embed.md`](examples/minimal_extract_embed.md) | `extract_facts` / `embed_facts` |
 
-## Try it on Google Colab
+## Demo notebook / Google Colab
 
-After publishing, install in Colab (GPU runtime recommended):
+For an executed walkthrough (scoring, adversarial pairs, caching, heatmaps, CXRFE vs SRR-BERT-Leaves):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PabloMessina/CXR-Fact-Encoder/blob/main/notebooks/cxrfescore_demo.ipynb)
+
+- Notebook source: [CXR-Fact-Encoder/notebooks/cxrfescore_demo.ipynb](https://github.com/PabloMessina/CXR-Fact-Encoder/blob/main/notebooks/cxrfescore_demo.ipynb)
+- Paper hub: https://github.com/PabloMessina/CXR-Fact-Encoder
+
+In Colab (GPU runtime recommended):
 
 ```python
-!pip install cxrfescore
+!pip install "cxrfescore[viz]"
 ```
 
-For a pre-release check against TestPyPI:
-
-```python
-!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.3"
-```
+Lightweight smoke snippets also live under [`examples/`](examples/), including [`examples/colab_smoke.md`](examples/colab_smoke.md).
 
 ## Citation
 
