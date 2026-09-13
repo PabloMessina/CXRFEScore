@@ -76,6 +76,13 @@ def test_srr_bert_leaves_is_supported():
     assert CXRFEScore.MODEL_EMBEDDING_DIMENSIONS["StanfordAIMI/SRR-BERT-Leaves"] == 768
 
 
+def test_srr_bert_leaves_with_statuses_is_supported():
+    name = "StanfordAIMI/SRR-BERT-Leaves-with-Statuses"
+    assert name in CXRFEScore.SUPPORTED_MODELS
+    assert CXRFEScore.ENCODER_BACKEND[name] == "cls"
+    assert CXRFEScore.MODEL_EMBEDDING_DIMENSIONS[name] == 768
+
+
 def test_default_cache_dir_is_platformdirs():
     assert "cxrfescore" in DEFAULT_CACHE_DIR
 

@@ -51,6 +51,7 @@ Supported alternate encoders:
 - `microsoft/BiomedVLP-CXR-BERT-specialized`
 - `microsoft/BiomedVLP-BioViL-T`
 - `StanfordAIMI/SRR-BERT-Leaves` (CLS embeddings only; label head unused)
+- `StanfordAIMI/SRR-BERT-Leaves-with-Statuses` (CLS embeddings only; label head unused)
 
 A GPU is recommended but not required. CPU works and is slower.
 
@@ -126,6 +127,7 @@ metric.visualize_fact_similarity(ref_report=refs[0], cand_report=hyps[0])
 | [`examples/minimal_cxr_bert_specialized.md`](examples/minimal_cxr_bert_specialized.md) | CXR-BERT specialized |
 | [`examples/minimal_biovil_t.md`](examples/minimal_biovil_t.md) | BioViL-T |
 | [`examples/minimal_srr_bert_leaves.md`](examples/minimal_srr_bert_leaves.md) | SRR-BERT-Leaves CLS |
+| [`examples/minimal_srr_bert_leaves_with_statuses.md`](examples/minimal_srr_bert_leaves_with_statuses.md) | SRR-BERT-Leaves-with-Statuses CLS |
 | [`examples/minimal_extract_embed.md`](examples/minimal_extract_embed.md) | `extract_facts` / `embed_facts` |
 
 ## Demo notebook / Google Colab

@@ -11,7 +11,7 @@ Run this **after** `cxrfescore` is uploaded to TestPyPI and **before** productio
 ## Install from TestPyPI
 
 ```python
-!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.3"
+!pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "cxrfescore==0.2.4"
 ```
 
 After the production release, use:

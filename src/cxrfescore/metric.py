@@ -34,10 +34,11 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 DEFAULT_CACHE_DIR = user_cache_dir("cxrfescore")
 
-# SRR-BERT-Leaves uses a classification head; we only use BERT CLS embeddings.
-SRR_BERT_LEAVES_NUM_LABELS = 55
-SRR_BERT_LEAVES_TOKENIZER = "microsoft/BiomedVLP-CXR-BERT-general"
-SRR_BERT_LEAVES_MAX_LENGTH = 128
+# SRR-BERT-* models use a classification head; we only use BERT CLS embeddings.
+# num_labels is taken from each checkpoint's config.json (55 for Leaves, 163 for
+# Leaves-with-Statuses), so we do not hardcode it at load time.
+SRR_BERT_TOKENIZER = "microsoft/BiomedVLP-CXR-BERT-general"
+SRR_BERT_MAX_LENGTH = 128
 
 
 def _safe_model_dirname(model_name: str) -> str:
@@ -95,6 +96,7 @@ class CXRFEScore:
         "microsoft/BiomedVLP-CXR-BERT-specialized",
         "microsoft/BiomedVLP-BioViL-T",
         "StanfordAIMI/SRR-BERT-Leaves",
+        "StanfordAIMI/SRR-BERT-Leaves-with-Statuses",
     ]
 
     MODEL_EMBEDDING_DIMENSIONS = {
@@ -102,6 +104,7 @@ class CXRFEScore:
         "microsoft/BiomedVLP-CXR-BERT-specialized": 128,
         "microsoft/BiomedVLP-BioViL-T": 128,
         "StanfordAIMI/SRR-BERT-Leaves": 768,
+        "StanfordAIMI/SRR-BERT-Leaves-with-Statuses": 768,
     }
 
     # projected: get_projected_text_embeddings (CXRFE / CXR-BERT family)
@@ -111,6 +114,7 @@ class CXRFEScore:
         "microsoft/BiomedVLP-CXR-BERT-specialized": "projected",
         "microsoft/BiomedVLP-BioViL-T": "projected",
         "StanfordAIMI/SRR-BERT-Leaves": "cls",
+        "StanfordAIMI/SRR-BERT-Leaves-with-Statuses": "cls",
     }
 
     def __init__(
@@ -167,7 +171,7 @@ class CXRFEScore:
         self.extractor_model_name = extractor_model_name
         self.encoder_backend = self.ENCODER_BACKEND[encoder_model_name]
         self.encoder_max_length = (
-            SRR_BERT_LEAVES_MAX_LENGTH if self.encoder_backend == "cls" else None
+            SRR_BERT_MAX_LENGTH if self.encoder_backend == "cls" else None
         )
         self.default_batch_size = batch_size
         self.default_num_workers = num_workers
@@ -222,11 +226,10 @@ class CXRFEScore:
 
         if self.encoder_backend == "cls":
             # Classification weights are unused; we only read BERT CLS states.
-            self.encoder_tokenizer = BertTokenizer.from_pretrained(
-                SRR_BERT_LEAVES_TOKENIZER
-            )
+            # Let config.json set num_labels (Leaves=55, Leaves-with-Statuses=163).
+            self.encoder_tokenizer = BertTokenizer.from_pretrained(SRR_BERT_TOKENIZER)
             self.encoder_model = BertForSequenceClassification.from_pretrained(
-                self.encoder_model_name, num_labels=SRR_BERT_LEAVES_NUM_LABELS
+                self.encoder_model_name
             )
             self.encoder_model.to(self.device)
             self.encoder_model.eval()
